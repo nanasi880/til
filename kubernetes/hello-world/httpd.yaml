@@ -1,0 +1,18 @@
+apiVersion: v1
+
+# Podに関する設定ファイルであることを明記
+kind: Pod
+
+# メタデータの記述
+metadata:
+  name: httpd  # Podの名前
+  labels:      # Podに設定するラベルの一覧 ラベル一覧は {key}:{value}としてmapとして使用する
+    app: httpd
+
+# Podの仕様についての記述
+spec:
+  containers:
+  - name: httpd  # コンテナ名を設定
+    image: httpd # コンテナイメージ名を指定
+    ports:
+    - containerPort: 80
