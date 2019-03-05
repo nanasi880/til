@@ -27,7 +27,7 @@ func (a *assembler) asm(sourceFile []byte) ([]byte, error) {
 	line := make([]byte, 0, 1024)
 	for {
 		// データリセット
-		line = line[:]
+		line = line[:0]
 
 		a.sourceLineNumber += 1
 
@@ -222,6 +222,21 @@ func (a *assembler) splitToken(s string) ([]interface{}, error) {
 		token    = make([]byte, 0)
 		isString bool
 	)
+
+	doParse := func() error {
+
+		if isString {
+			result = append(result, string(token))
+		} else {
+			v, err := strconv.ParseInt(string(token), 0, 32)
+			if err != nil {
+				return err
+			}
+			result = append(result, int(v))
+		}
+		return nil
+	}
+
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 
@@ -237,18 +252,13 @@ func (a *assembler) splitToken(s string) ([]interface{}, error) {
 				continue
 			}
 
-			if isString {
-				result = append(result, string(token))
-			} else {
-				v, err := strconv.ParseInt(string(token), 0, 32)
-				if err != nil {
-					return nil, err
-				}
-				result = append(result, int(v))
+			if err := doParse(); err != nil {
+				return nil, err
 			}
+
 			isQuarto = false
 			isString = false
-			token = token[:]
+			token = token[:0]
 
 		case ' ':
 			if isQuarto {
@@ -258,6 +268,13 @@ func (a *assembler) splitToken(s string) ([]interface{}, error) {
 
 		default:
 			token = append(token, c)
+		}
+	}
+
+	// 最後まで読み切ったデータも解析する
+	if len(token) > 0 {
+		if err := doParse(); err != nil {
+			return nil, err
 		}
 	}
 

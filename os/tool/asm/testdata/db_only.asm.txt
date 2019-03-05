@@ -1,0 +1,5 @@
+; assembler test file
+; this is comment line
+
+        DB  0x12, 0x34      ; 直値指定
+        DB  "Hello, World"  ; テキスト指定

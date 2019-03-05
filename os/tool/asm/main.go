@@ -28,7 +28,7 @@ func main() {
 	}
 
 	asm := new(assembler)
-	if err := asm.asm(sourceFile); err != nil {
+	if _, err := asm.asm(sourceFile); err != nil {
 		log.Fatal(err)
 	}
 }
