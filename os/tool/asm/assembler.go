@@ -18,10 +18,10 @@ type assembler struct {
 }
 
 // 指定したファイルのアセンブルを開始
-func (a *assembler) asm(sourceFile []byte) ([]byte, error) {
+func (a *assembler) asm(sourceFile io.Reader, out io.Writer) error {
 
 	// init
-	reader := bufio.NewReader(bytes.NewReader(sourceFile))
+	reader := bufio.NewReader(sourceFile)
 
 	// 適当なサイズで1行分のデータを確保するためのバッファを作成
 	line := make([]byte, 0, 1024)
@@ -35,10 +35,10 @@ func (a *assembler) asm(sourceFile []byte) ([]byte, error) {
 		// 読めるところまで読む
 		l, isPrefix, err := reader.ReadLine()
 		if err == io.EOF {
-			return a.relocate()
+			return a.relocate(out)
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// 今回の読み込みで取得出来たデータは次回のReadLine()呼び出しの時点でスライスが書き換わるのでディープコーピーした上で
@@ -50,7 +50,7 @@ func (a *assembler) asm(sourceFile []byte) ([]byte, error) {
 
 		// 1行分のデータを取得出来たのでそれを処理
 		if err := a.line(line); err != nil {
-			return nil, err
+			return err
 		}
 	}
 }
@@ -119,7 +119,7 @@ func (a *assembler) parseLabel(line []byte) error {
 	return nil
 }
 
-// オペレーションコード業をパースする
+// オペレーションコード行をパースする
 func (a *assembler) parseOpCode(line []byte) error {
 
 	// オペコード解析に空白は邪魔なので削除してしまう
@@ -138,21 +138,9 @@ func (a *assembler) parseOpCode(line []byte) error {
 	}
 	mnemonic = strings.ToUpper(mnemonic)
 
-	// ニーモックに応じて処理を実施
-	var (
-		operations []operation
-		err        error
-	)
-	switch mnemonic {
-	case "DB":
-		operations, err = a.mnemonicDB(parameter)
-
-	default:
-		return fmt.Errorf("error:%d unknown mnemonic `%s`", a.sourceLineNumber, mnemonic)
-	}
-
+	operations, err := a.parseMnemonic(mnemonic, parameter)
 	if err != nil {
-		return fmt.Errorf("error:%d %s", a.sourceLineNumber, err.Error())
+		return err
 	}
 
 	// 命令サイズ分だけアドレスをオフセットし、命令一覧を結合
@@ -164,46 +152,6 @@ func (a *assembler) parseOpCode(line []byte) error {
 	a.operations = append(a.operations, operations...)
 
 	return nil
-}
-
-// DB命令
-//
-// @param parameter --- パラメーター
-//
-// @return オペレーション一覧、エラー
-func (a *assembler) mnemonicDB(parameter string) ([]operation, error) {
-
-	tokens, err := a.splitToken(parameter)
-	if err != nil {
-		return nil, err
-	}
-
-	var (
-		result []operation
-	)
-	for _, tok := range tokens {
-
-		switch tok := tok.(type) {
-
-		case string:
-			result = append(result, &opDB{
-				b: []byte(tok),
-			})
-
-		case int:
-			if tok < 0 || tok > 0xFF {
-				return nil, fmt.Errorf("DB命令の即値は0x00 ~ 0xFFの範囲である必要がある")
-			}
-			result = append(result, &opDB{
-				b: []byte{byte(tok)},
-			})
-
-		default:
-			return nil, fmt.Errorf("internal %+v", tok)
-		}
-	}
-
-	return result, nil
 }
 
 // 文字列をカンマ区切りのトークン列だと仮定して分割する
@@ -281,21 +229,27 @@ func (a *assembler) splitToken(s string) ([]interface{}, error) {
 	return result, nil
 }
 
-func (a *assembler) relocate() ([]byte, error) {
+func (a *assembler) relocate(out io.Writer) error {
 
-	var (
-		bin []byte
-	)
+	bo := bufio.NewWriter(out)
+
 	for _, o := range a.operations {
 
 		if err := o.Relocate(a.labels); err != nil {
-			return nil, err
+			return err
 		}
 
-		bin = append(bin, o.Write()...)
+		_, err := o.Write(bo)
+		if err != nil {
+			return err
+		}
 	}
 
-	return bin, nil
+	if err := bo.Flush(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // 事実上空行とみなせるかどうかを調べる

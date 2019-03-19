@@ -1,5 +1,7 @@
 package main
 
+import "io"
+
 // operation
 type operation interface {
 
@@ -14,7 +16,7 @@ type operation interface {
 	Relocate(table map[string]int) error
 
 	// オペレーションをバイナリとして出力
-	Write() []byte
+	Write(w io.Writer) (int, error)
 }
 
 // DB命令
@@ -30,6 +32,42 @@ func (o *opDB) Relocate(_ map[string]int) error {
 	return nil
 }
 
-func (o *opDB) Write() []byte {
-	return o.b
+func (o *opDB) Write(w io.Writer) (int, error) {
+	return w.Write(o.b)
+}
+
+// RESB命令
+type opRESB struct {
+	size int
+}
+
+func (o *opRESB) Size() int {
+	return o.size
+}
+
+func (o *opRESB) Relocate(_ map[string]int) error {
+	return nil
+}
+
+func (o *opRESB) Write(w io.Writer) (int, error) {
+
+	zero := make([]byte, 4096)
+	size := o.size
+
+	for size > 0 {
+
+		if size < len(zero) {
+			zero = zero[:size]
+		}
+
+		n, err := w.Write(zero)
+		if err != nil {
+			writtenSize := o.size - size + n
+			return writtenSize, err
+		}
+
+		size -= n
+	}
+
+	return o.size, nil
 }
