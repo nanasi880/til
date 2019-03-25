@@ -2,21 +2,19 @@ package main
 
 import (
 	"bytes"
-	"os"
 	"testing"
+
+	"go.nanasi880.dev/xtesting"
 )
 
 func TestAssembler_DB(t *testing.T) {
 
-	asmFile, err := os.Open("testdata/db_only.asm.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer asmFile.Close()
+	asmFile := xtesting.MustOpen(t, "testdata/db_only.asm.txt")
+	defer xtesting.MustClose(t, asmFile)
 
 	a := new(assembler)
 	b := new(bytes.Buffer)
-	err = a.asm(asmFile, b)
+	err := a.asm(asmFile, b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,15 +25,12 @@ func TestAssembler_DB(t *testing.T) {
 
 func TestAssembler_RESB(t *testing.T) {
 
-	asmFile, err := os.Open("testdata/db_resb.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer asmFile.Close()
+	asmFile := xtesting.MustOpen(t, "testdata/db_resb.txt")
+	defer xtesting.MustClose(t, asmFile)
 
 	a := new(assembler)
 	b := new(bytes.Buffer)
-	err = a.asm(asmFile, b)
+	err := a.asm(asmFile, b)
 	if err != nil {
 		t.Fatal(err)
 	}
