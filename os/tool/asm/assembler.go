@@ -62,13 +62,8 @@ func (a *assembler) asm(sourceFile io.Reader, out io.Writer) error {
 // @return エラー
 func (a *assembler) line(line []byte) error {
 
-	var (
-		tab        = []byte("\t")
-		whiteSpace = []byte("    ")
-	)
-
 	// TAB文字は面倒なので空白に置換する
-	line = bytes.ReplaceAll(line, tab, whiteSpace)
+	line = a.replaceTab(line)
 
 	// コメントより後ろは削除
 	line = a.trimComment(line)
@@ -176,11 +171,11 @@ func (a *assembler) splitToken(s string) ([]interface{}, error) {
 		if isString {
 			result = append(result, string(token))
 		} else {
-			v, err := strconv.ParseInt(string(token), 0, 32)
+			v, err := strconv.ParseUint(string(token), 0, 32)
 			if err != nil {
 				return err
 			}
-			result = append(result, int(v))
+			result = append(result, v)
 		}
 		return nil
 	}
@@ -264,6 +259,36 @@ func (a *assembler) isEmpty(line []byte) bool {
 		}
 	}
 	return true
+}
+
+// タブ文字を空白に置換する
+// ただし、クォートされている部分はスキップする
+//
+// @param line --- 1行分のデータ
+//
+// @return タブを空白に置換した結果のデータ
+func (a *assembler) replaceTab(line []byte) []byte {
+
+	var (
+		isQuote bool
+		result = make([]byte, 0, len(line))
+	)
+	for _, c := range line {
+
+		switch c {
+		case '"':
+			isQuote = !isQuote
+
+		case '\t':
+			if !isQuote {
+				c = ' '
+			}
+		}
+
+		result = append(result, c)
+	}
+
+	return result
 }
 
 // コメントを除去する
