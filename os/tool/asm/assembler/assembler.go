@@ -1,4 +1,4 @@
-package main
+package assembler
 
 import (
 	"bufio"
@@ -7,18 +7,25 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/nanasi880/til/os/tool/asm/assembler/instruction"
 )
 
-type assembler struct {
-	origin           int            // 命令配置基準位置 ORG命令でセットされる
-	address          int            // originから現在の命令位置のオフセット
-	sourceLineNumber int            // 現在解析しているソースコードの行番号
-	labels           map[string]int // ラベルの名前:addressの対応表
-	operations       []operation    // バイナリ先頭からのオペコード一覧
+type Assembler struct {
+	origin           int                    // 命令配置基準位置 ORG命令でセットされる
+	address          int                    // originから現在の命令位置のオフセット
+	sourceLineNumber int                    // 現在解析しているソースコードの行番号
+	labels           map[string]int         // ラベルの名前:addressの対応表
+	mnemonics        []instruction.Mnemonic // バイナリ先頭からのオペコード一覧
+}
+
+// 新しいアセンブラインスタンスを作成
+func New() *Assembler {
+	return new(Assembler)
 }
 
 // 指定したファイルのアセンブルを開始
-func (a *assembler) asm(sourceFile io.Reader, out io.Writer) error {
+func (a *Assembler) Exec(sourceFile io.Reader, out io.Writer) error {
 
 	// init
 	reader := bufio.NewReader(sourceFile)
@@ -60,7 +67,7 @@ func (a *assembler) asm(sourceFile io.Reader, out io.Writer) error {
 // @param line --- 1行分のデータ
 //
 // @return エラー
-func (a *assembler) line(line []byte) error {
+func (a *Assembler) line(line []byte) error {
 
 	// TAB文字は面倒なので空白に置換する
 	line = a.replaceTab(line)
@@ -92,7 +99,7 @@ func (a *assembler) line(line []byte) error {
 }
 
 // ラベル行をパースする
-func (a *assembler) parseLabel(line []byte) error {
+func (a *Assembler) parseLabel(line []byte) error {
 
 	// ラベル行は必ずコロンで終端しているはず
 	index := bytes.IndexByte(line, ':')
@@ -115,7 +122,7 @@ func (a *assembler) parseLabel(line []byte) error {
 }
 
 // オペレーションコード行をパースする
-func (a *assembler) parseOpCode(line []byte) error {
+func (a *Assembler) parseOpCode(line []byte) error {
 
 	// オペコード解析に空白は邪魔なので削除してしまう
 	line = bytes.TrimSpace(line)
@@ -144,7 +151,7 @@ func (a *assembler) parseOpCode(line []byte) error {
 		operationSize += o.Size()
 	}
 	a.address += operationSize
-	a.operations = append(a.operations, operations...)
+	a.mnemonics = append(a.mnemonics, operations...)
 
 	return nil
 }
@@ -157,7 +164,7 @@ func (a *assembler) parseOpCode(line []byte) error {
 // @param s --- 分割対象文字列
 //
 // @return int or stringの混合スライス、エラー
-func (a *assembler) splitToken(s string) ([]interface{}, error) {
+func (a *Assembler) splitToken(s string) ([]interface{}, error) {
 
 	var (
 		result   []interface{}
@@ -224,11 +231,11 @@ func (a *assembler) splitToken(s string) ([]interface{}, error) {
 	return result, nil
 }
 
-func (a *assembler) relocate(out io.Writer) error {
+func (a *Assembler) relocate(out io.Writer) error {
 
 	bo := bufio.NewWriter(out)
 
-	for _, o := range a.operations {
+	for _, o := range a.mnemonics {
 
 		if err := o.Relocate(a.labels); err != nil {
 			return err
@@ -252,7 +259,7 @@ func (a *assembler) relocate(out io.Writer) error {
 // @param line --- 1行分のデータ
 //
 // @return 空行とみなせるかどうか 空白文字だけが存在するようなケースもtrueとみなす
-func (a *assembler) isEmpty(line []byte) bool {
+func (a *Assembler) isEmpty(line []byte) bool {
 	for _, v := range line {
 		if v != ' ' {
 			return false
@@ -267,11 +274,11 @@ func (a *assembler) isEmpty(line []byte) bool {
 // @param line --- 1行分のデータ
 //
 // @return タブを空白に置換した結果のデータ
-func (a *assembler) replaceTab(line []byte) []byte {
+func (a *Assembler) replaceTab(line []byte) []byte {
 
 	var (
 		isQuote bool
-		result = make([]byte, 0, len(line))
+		result  = make([]byte, 0, len(line))
 	)
 	for _, c := range line {
 
@@ -296,7 +303,7 @@ func (a *assembler) replaceTab(line []byte) []byte {
 // @param line --- 1行分のデータ
 //
 // @return コメントを除去した結果のデータ
-func (a *assembler) trimComment(line []byte) []byte {
+func (a *Assembler) trimComment(line []byte) []byte {
 
 	var (
 		isQuote bool

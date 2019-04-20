@@ -1,17 +1,18 @@
-package main
+package assembler
 
 import (
 	"encoding/binary"
 	"fmt"
 	"strconv"
 
+	"github.com/nanasi880/til/os/tool/asm/assembler/instruction"
 	"github.com/nanasi880/til/os/tool/asm/internal"
 )
 
-func (a *assembler) parseMnemonic(mnemonic string, parameter string) ([]operation, error) {
+func (a *Assembler) parseMnemonic(mnemonic string, parameter string) ([]instruction.Mnemonic, error) {
 
 	var (
-		operations []operation
+		operations []instruction.Mnemonic
 		err        error
 	)
 	switch mnemonic {
@@ -48,7 +49,7 @@ func (a *assembler) parseMnemonic(mnemonic string, parameter string) ([]operatio
 // @param parameter --- パラメーター
 //
 // @return オペレーション一覧、エラー
-func (a *assembler) mnemonicDB(parameter string) ([]operation, error) {
+func (a *Assembler) mnemonicDB(parameter string) ([]instruction.Mnemonic, error) {
 
 	tokens, err := a.splitToken(parameter)
 	if err != nil {
@@ -56,24 +57,20 @@ func (a *assembler) mnemonicDB(parameter string) ([]operation, error) {
 	}
 
 	var (
-		result []operation
+		result []instruction.Mnemonic
 	)
 	for _, tok := range tokens {
 
 		switch tok := tok.(type) {
 
 		case string:
-			result = append(result, &opDB{
-				b: []byte(tok),
-			})
+			result = append(result, instruction.NewDB([]byte(tok)))
 
 		case uint64:
 			if tok > 0xFF {
 				return nil, fmt.Errorf("DB命令の即値は0x00 ~ 0xFFの範囲である必要がある")
 			}
-			result = append(result, &opDB{
-				b: []byte{byte(tok)},
-			})
+			result = append(result, instruction.NewDB([]byte{byte(tok)}))
 
 		default:
 			return nil, fmt.Errorf("internal %+v", tok)
@@ -90,7 +87,7 @@ func (a *assembler) mnemonicDB(parameter string) ([]operation, error) {
 //                      2ならDW、4ならDDと解釈される
 //
 // @return オペレーション一覧、エラー
-func (a *assembler) mnemonicMultiWord(parameter string, size int) ([]operation, error) {
+func (a *Assembler) mnemonicMultiWord(parameter string, size int) ([]instruction.Mnemonic, error) {
 
 	if size == 2 {
 		return a.mnemonicMultiWordWithConverter(parameter, func(u uint64) ([]byte, error) {
@@ -119,7 +116,7 @@ func (a *assembler) mnemonicMultiWord(parameter string, size int) ([]operation, 
 	})
 }
 
-func (a *assembler) mnemonicMultiWordWithConverter(parameter string, c func(uint64) ([]byte, error)) ([]operation, error) {
+func (a *Assembler) mnemonicMultiWordWithConverter(parameter string, c func(uint64) ([]byte, error)) ([]instruction.Mnemonic, error) {
 
 	tokens, err := a.splitToken(parameter)
 	if err != nil {
@@ -127,7 +124,7 @@ func (a *assembler) mnemonicMultiWordWithConverter(parameter string, c func(uint
 	}
 
 	var (
-		result []operation
+		result []instruction.Mnemonic
 	)
 
 	for _, tok := range tokens {
@@ -141,9 +138,7 @@ func (a *assembler) mnemonicMultiWordWithConverter(parameter string, c func(uint
 				return nil, err
 			}
 
-			result = append(result, &opDB{
-				b: bytes,
-			})
+			result = append(result, instruction.NewDB(bytes))
 
 		default:
 			return nil, fmt.Errorf("internal %+v", tok)
@@ -158,17 +153,15 @@ func (a *assembler) mnemonicMultiWordWithConverter(parameter string, c func(uint
 // @param parameter --- パラメーター
 //
 // @return オペレーション一覧、エラー
-func (a *assembler) mnemonicRESB(parameter string) ([]operation, error) {
+func (a *Assembler) mnemonicRESB(parameter string) ([]instruction.Mnemonic, error) {
 
 	size, err := strconv.ParseInt(parameter, 0, internal.IntSize)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]operation, 0, 1)
-	result = append(result, &opRESB{
-		size: int(size),
-	})
+	result := make([]instruction.Mnemonic, 0, 1)
+	result = append(result, instruction.NewRESB(int(size)))
 
 	return result, nil
 }

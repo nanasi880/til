@@ -1,4 +1,4 @@
-package main
+package assembler
 
 import (
 	"bytes"
@@ -42,12 +42,12 @@ func makeHellosImage() []byte {
 
 func TestAssembler_DB(t *testing.T) {
 
-	asmFile := xtesting.MustOpen(t, "testdata/db_only.asm.txt")
+	asmFile := xtesting.MustOpen(t, "testdata/db_only.Exec.txt")
 	defer xtesting.MustClose(t, asmFile)
 
-	a := new(assembler)
+	a := new(Assembler)
 	b := new(bytes.Buffer)
-	err := a.asm(asmFile, b)
+	err := a.Exec(asmFile, b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,9 +61,9 @@ func TestAssembler_RESB(t *testing.T) {
 	asmFile := xtesting.MustOpen(t, "testdata/db_resb.txt")
 	defer xtesting.MustClose(t, asmFile)
 
-	a := new(assembler)
+	a := new(Assembler)
 	b := new(bytes.Buffer)
-	err := a.asm(asmFile, b)
+	err := a.Exec(asmFile, b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,9 +78,9 @@ func TestAssembler_DWDD(t *testing.T) {
 	asmFile := xtesting.MustOpen(t, "testdata/dw_dd.txt")
 	defer xtesting.MustClose(t, asmFile)
 
-	a := new(assembler)
+	a := new(Assembler)
 	b := new(bytes.Buffer)
-	err := a.asm(asmFile, b)
+	err := a.Exec(asmFile, b)
 	if err != nil {
 		t.Fatal(err)
 	}
