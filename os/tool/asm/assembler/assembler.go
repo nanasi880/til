@@ -2,13 +2,11 @@ package assembler
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
-	"strconv"
-	"strings"
 
 	"github.com/nanasi880/til/os/tool/asm/assembler/instruction"
+	"github.com/nanasi880/til/os/tool/asm/assembler/lexer"
 )
 
 type Assembler struct {
@@ -27,39 +25,36 @@ func New() *Assembler {
 // 指定したファイルのアセンブルを開始
 func (a *Assembler) Exec(sourceFile io.Reader, out io.Writer) error {
 
-	// init
-	reader := bufio.NewReader(sourceFile)
+	file, err := lexer.Analyze(sourceFile)
+	if err != nil {
+		return err
+	}
 
-	// 適当なサイズで1行分のデータを確保するためのバッファを作成
-	line := make([]byte, 0, 1024)
-	for {
-		// データリセット
-		line = line[:0]
-
-		a.sourceLineNumber += 1
-
-	again:
-		// 読めるところまで読む
-		l, isPrefix, err := reader.ReadLine()
-		if err == io.EOF {
-			return a.relocate(out)
-		}
-		if err != nil {
-			return err
-		}
-
-		// 今回の読み込みで取得出来たデータは次回のReadLine()呼び出しの時点でスライスが書き換わるのでディープコーピーした上で
-		// 後続データがあるなら引き続き読み込み
-		line = append(line, l...)
-		if isPrefix {
-			goto again
-		}
-
-		// 1行分のデータを取得出来たのでそれを処理
+	a.sourceLineNumber = 1
+	for _, line := range file {
 		if err := a.line(line); err != nil {
 			return err
 		}
+		a.sourceLineNumber += 1
 	}
+
+	for _, m := range a.mnemonics {
+		if err := m.Relocate(a.labels); err != nil {
+			return err
+		}
+	}
+
+	w := bufio.NewWriter(out)
+	for _, m := range a.mnemonics {
+		if _, err := m.Write(w); err != nil {
+			return err
+		}
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // アセンブリファイル1行分のデータの処理を開始
@@ -67,48 +62,23 @@ func (a *Assembler) Exec(sourceFile io.Reader, out io.Writer) error {
 // @param line --- 1行分のデータ
 //
 // @return エラー
-func (a *Assembler) line(line []byte) error {
+func (a *Assembler) line(line lexer.Line) error {
 
-	// TAB文字は面倒なので空白に置換する
-	line = a.replaceTab(line)
-
-	// コメントより後ろは削除
-	line = a.trimComment(line)
-
-	// 空行は無視
-	if a.isEmpty(line) {
-		return nil
-	}
-
-	if line[0] != ' ' {
-
-		// 先頭に余白が無い場合、それはコメント行 or ラベル
-		if err := a.parseLabel(line); err != nil {
-			return err
-		}
-
+	if line[0].Last() == ':' {
+		return a.parseLabel(line)
 	} else {
-
-		// それ以外は命令行もしくは空行
-		if err := a.parseOpCode(line); err != nil {
-			return err
-		}
+		return a.parseOpCode(line)
 	}
-
-	return nil
 }
 
 // ラベル行をパースする
-func (a *Assembler) parseLabel(line []byte) error {
+func (a *Assembler) parseLabel(line lexer.Line) error {
 
-	// ラベル行は必ずコロンで終端しているはず
-	index := bytes.IndexByte(line, ':')
-	if index < 0 {
-		return fmt.Errorf("error:%d ラベル名がコロンで終端していない", a.sourceLineNumber)
-	}
+	// 末尾のコロンを削除
+	label := string(line[0])
+	label = label[:len(label)-1]
 
-	// すでにラベル名が存在しているのはコンパイルエラー
-	label := string(line[:index])
+	// 既にラベル名が存在しているのはコンパイルエラー
 	if _, ok := a.labels[label]; ok {
 		return fmt.Errorf("error:%d ラベル名 %s は既に使用されています", a.sourceLineNumber, label)
 	}
@@ -118,117 +88,23 @@ func (a *Assembler) parseLabel(line []byte) error {
 		a.labels = make(map[string]int)
 	}
 	a.labels[label] = a.address
+
 	return nil
 }
 
 // オペレーションコード行をパースする
-func (a *Assembler) parseOpCode(line []byte) error {
+func (a *Assembler) parseOpCode(line lexer.Line) error {
 
-	// オペコード解析に空白は邪魔なので削除してしまう
-	line = bytes.TrimSpace(line)
-
-	// 最初の空白までを取り出し、その結果がニーモックのはず
 	var (
-		mnemonic  string
-		parameter string
+		mnemonic   = line[0]
+		parameters = line[1:]
 	)
-	if index := bytes.IndexByte(line, ' '); index > 0 {
-		mnemonic = string(line[:index])
-		parameter = string(bytes.TrimSpace(line[index:]))
-	} else {
-		mnemonic = string(line)
-	}
-	mnemonic = strings.ToUpper(mnemonic)
-
-	operations, err := a.parseMnemonic(mnemonic, parameter)
+	err := a.parseMnemonic(mnemonic, parameters)
 	if err != nil {
 		return err
 	}
 
-	// 命令サイズ分だけアドレスをオフセットし、命令一覧を結合
-	var operationSize int
-	for _, o := range operations {
-		operationSize += o.Size()
-	}
-	a.address += operationSize
-	a.mnemonics = append(a.mnemonics, operations...)
-
 	return nil
-}
-
-// 文字列をカンマ区切りのトークン列だと仮定して分割する
-// 0xで始まるテキストでかつそれがクオートされていない場合、中身をintと仮定しパースする
-// それ以外はレジスタ名も含めてstringとして取り扱う
-// カンマから次のトークンまでの余分な空白は無視される
-//
-// @param s --- 分割対象文字列
-//
-// @return int or stringの混合スライス、エラー
-func (a *Assembler) splitToken(s string) ([]interface{}, error) {
-
-	var (
-		result   []interface{}
-		isQuarto bool
-		token    = make([]byte, 0)
-		isString bool
-	)
-
-	doParse := func() error {
-
-		if isString {
-			result = append(result, string(token))
-		} else {
-			v, err := strconv.ParseUint(string(token), 0, 32)
-			if err != nil {
-				return err
-			}
-			result = append(result, v)
-		}
-		return nil
-	}
-
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-
-		switch c {
-
-		case '"':
-			isQuarto = !isQuarto
-			isString = true
-
-		case ',':
-			if isQuarto {
-				token = append(token, c)
-				continue
-			}
-
-			if err := doParse(); err != nil {
-				return nil, err
-			}
-
-			isQuarto = false
-			isString = false
-			token = token[:0]
-
-		case ' ':
-			if isQuarto {
-				token = append(token, c)
-				continue
-			}
-
-		default:
-			token = append(token, c)
-		}
-	}
-
-	// 最後まで読み切ったデータも解析する
-	if len(token) > 0 {
-		if err := doParse(); err != nil {
-			return nil, err
-		}
-	}
-
-	return result, nil
 }
 
 func (a *Assembler) relocate(out io.Writer) error {
@@ -252,79 +128,4 @@ func (a *Assembler) relocate(out io.Writer) error {
 	}
 
 	return nil
-}
-
-// 事実上空行とみなせるかどうかを調べる
-//
-// @param line --- 1行分のデータ
-//
-// @return 空行とみなせるかどうか 空白文字だけが存在するようなケースもtrueとみなす
-func (a *Assembler) isEmpty(line []byte) bool {
-	for _, v := range line {
-		if v != ' ' {
-			return false
-		}
-	}
-	return true
-}
-
-// タブ文字を空白に置換する
-// ただし、クォートされている部分はスキップする
-//
-// @param line --- 1行分のデータ
-//
-// @return タブを空白に置換した結果のデータ
-func (a *Assembler) replaceTab(line []byte) []byte {
-
-	var (
-		isQuote bool
-		result  = make([]byte, 0, len(line))
-	)
-	for _, c := range line {
-
-		switch c {
-		case '"':
-			isQuote = !isQuote
-
-		case '\t':
-			if !isQuote {
-				c = ' '
-			}
-		}
-
-		result = append(result, c)
-	}
-
-	return result
-}
-
-// コメントを除去する
-//
-// @param line --- 1行分のデータ
-//
-// @return コメントを除去した結果のデータ
-func (a *Assembler) trimComment(line []byte) []byte {
-
-	var (
-		isQuote bool
-		index   = -1
-	)
-	for i, c := range line {
-
-		switch c {
-		case '"':
-			isQuote = !isQuote
-
-		case ';':
-			if !isQuote {
-				index = i
-				break
-			}
-		}
-	}
-
-	if index < 0 {
-		return line
-	}
-	return line[:index]
 }

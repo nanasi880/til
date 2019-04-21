@@ -1,0 +1,5 @@
+; this is comment line
+
+THIS_IS_LABEL:
+
+    THIS_IS_MNEMONIC PARAM1, "PARAM2", "PARAM3;";this is comment

@@ -1,10 +1,15 @@
 package instruction
 
-import "io"
+import (
+	"io"
+
+	"go.nanasi880.dev/rpn"
+)
 
 // DB命令
 type DB struct {
-	b []byte
+	b   []byte
+	rpn *rpn.RPN
 }
 
 func NewDB(b []byte) *DB {

@@ -1,2 +1,6 @@
+github.com/shopspring/decimal v0.0.0-20180709203117-cd690d0c9e24 h1:pntxY8Ary0t43dCZ5dqY4YTJCObLY1kIXl0uzMv+7DE=
+github.com/shopspring/decimal v0.0.0-20180709203117-cd690d0c9e24/go.mod h1:M+9NzErvs504Cn4c5DxATwIqPbtswREoFCre64PpcG4=
+go.nanasi880.dev/rpn v1.0.4 h1:Rs5/dxsfCF8VhOYdblFMHTg5GrHBQ1yGGHn9og5sdnU=
+go.nanasi880.dev/rpn v1.0.4/go.mod h1:jisYEVlzglwmq/+VJxcWr0qw3xyC0YQrNAkXi8S7R/s=
 go.nanasi880.dev/xtesting v0.1.0 h1:sJ+sjqIL2j7LCZEJbERWRkGnWj+b2fO4KPuvxt58Bb8=
 go.nanasi880.dev/xtesting v0.1.0/go.mod h1:rsv6K+i7y+z5FEjyyb3ETAH6uhxaXKScr7n3V2xVYjk=

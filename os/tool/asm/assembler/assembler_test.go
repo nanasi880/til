@@ -42,7 +42,7 @@ func makeHellosImage() []byte {
 
 func TestAssembler_DB(t *testing.T) {
 
-	asmFile := xtesting.MustOpen(t, "testdata/db_only.Exec.txt")
+	asmFile := xtesting.MustOpen(t, "testdata/db_only.asm.txt")
 	defer xtesting.MustClose(t, asmFile)
 
 	a := new(Assembler)
@@ -76,6 +76,23 @@ func TestAssembler_RESB(t *testing.T) {
 func TestAssembler_DWDD(t *testing.T) {
 
 	asmFile := xtesting.MustOpen(t, "testdata/dw_dd.txt")
+	defer xtesting.MustClose(t, asmFile)
+
+	a := new(Assembler)
+	b := new(bytes.Buffer)
+	err := a.Exec(asmFile, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if bytes.Compare(b.Bytes(), hellosImage) != 0 {
+		t.Fatal()
+	}
+}
+
+func TestAssembler_Val(t *testing.T) {
+
+	asmFile := xtesting.MustOpen(t, "testdata/val.txt")
 	defer xtesting.MustClose(t, asmFile)
 
 	a := new(Assembler)
