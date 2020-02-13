@@ -1,0 +1,49 @@
+# Kubernetes APIのバージョンを指定
+apiVersion: apps/v1
+
+# このyamlがDeploymentの定義であることを明示
+kind: Deployment
+
+# このDeploymentのメタデータ
+metadata:
+  name: redis-master # このDeploymentを一意に特定するための名前
+
+# デプロイメントの定義
+spec:
+
+  # 作成されるPodのレプリカの数
+  replicas: 1
+
+  # このDeploymentで制御されるPodを定義する
+  selector:
+    matchLabels:
+      app: redis
+      role: master
+      tier: backend
+  
+  # Podのテンプレートを定義する
+  template:
+   
+    # このPodのメタデータを定義する
+    metadata:
+      labels:
+        app: redis
+        role: master
+        tier: backend
+
+    # このPodの定義
+    spec:
+      # このPodで動作するコンテナの一覧を定義
+      containers:
+
+      # masterという名前でRedisのコンテナを指定
+      - name: master
+        image: gcr.io/google_containers/redis:e2e
+        # このコンテナを動作させるためにKubernetesに要求するリソース
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        # 公開するポート
+        ports:
+        - containerPort: 6379
