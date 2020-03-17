@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/shopspring/decimal"
+	"go.nanasi880.dev/rpn"
+
 	"github.com/nanasi880/til/os/tool/asm/assembler/instruction"
 	"github.com/nanasi880/til/os/tool/asm/assembler/lexer"
 	"github.com/nanasi880/til/os/tool/asm/internal"
-	"github.com/shopspring/decimal"
-	"go.nanasi880.dev/rpn"
 )
 
 func (a *Assembler) parseMnemonic(mnemonic lexer.Token, parameters []lexer.Token) error {
@@ -54,7 +55,7 @@ func (a *Assembler) Resolver() rpn.Resolver {
 	return func(name string) (decimal.Decimal, error) {
 
 		if name == "$" {
-			return decimal.New(int64(a.address), 0), nil
+			return decimal.New(a.address, 0), nil
 		}
 		return decimal.Zero, fmt.Errorf("undeclared variable: %s", name)
 	}
@@ -183,7 +184,7 @@ func (a *Assembler) mnemonicMultiWordWithConverter(parameters []lexer.Token, c f
 				return err
 			}
 			a.mnemonics = append(a.mnemonics, instruction.NewDB(b))
-			a.address += len(b)
+			a.address += int64(len(b))
 
 		case *rpn.RPN:
 			d, err := p.Eval(a.Resolver())
@@ -196,7 +197,7 @@ func (a *Assembler) mnemonicMultiWordWithConverter(parameters []lexer.Token, c f
 				return err
 			}
 			a.mnemonics = append(a.mnemonics, instruction.NewDB(b))
-			a.address += len(b)
+			a.address += int64(len(b))
 
 		default:
 			return fmt.Errorf("internal: %#v", p)
@@ -234,7 +235,7 @@ func (a *Assembler) mnemonicRESB(parameters []lexer.Token) error {
 		return fmt.Errorf("RESB overflow: %d", v)
 	}
 
-	resb := instruction.NewRESB(int(v))
+	resb := instruction.NewRESB(v)
 	a.mnemonics = append(a.mnemonics, resb)
 	a.address += resb.Size()
 

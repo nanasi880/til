@@ -10,10 +10,10 @@ import (
 )
 
 type Assembler struct {
-	origin           int                    // 命令配置基準位置 ORG命令でセットされる
-	address          int                    // originから現在の命令位置のオフセット
+	origin           int64                  // 命令配置基準位置 ORG命令でセットされる
+	address          int64                  // originから現在の命令位置のオフセット
 	sourceLineNumber int                    // 現在解析しているソースコードの行番号
-	labels           map[string]int         // ラベルの名前:addressの対応表
+	labels           map[string]int64       // ラベルの名前:addressの対応表
 	mnemonics        []instruction.Mnemonic // バイナリ先頭からのオペコード一覧
 }
 
@@ -85,7 +85,7 @@ func (a *Assembler) parseLabel(line lexer.Line) error {
 
 	// ラベル名と現在のオフセットアドレスを記憶
 	if a.labels == nil {
-		a.labels = make(map[string]int)
+		a.labels = make(map[string]int64)
 	}
 	a.labels[label] = a.address
 

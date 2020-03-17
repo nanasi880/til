@@ -19,7 +19,7 @@ func TrimSpace(s []rune) []rune {
 // @param f --- 条件関数
 //
 // @return 条件に合致する文字を除去したスライス
-func TrimFunc(s []rune, f func(rune)bool) []rune {
+func TrimFunc(s []rune, f func(rune) bool) []rune {
 	return TrimRightFunc(TrimLeftFunc(s, f), f)
 }
 
@@ -30,7 +30,7 @@ func TrimFunc(s []rune, f func(rune)bool) []rune {
 // @param f --- 条件関数
 //
 // @return 条件に合致する文字を除去したスライス
-func TrimLeftFunc(s []rune, f func(rune)bool) []rune {
+func TrimLeftFunc(s []rune, f func(rune) bool) []rune {
 
 	index := indexFunc(s, f, false)
 	if index == -1 {
@@ -47,7 +47,7 @@ func TrimLeftFunc(s []rune, f func(rune)bool) []rune {
 // @param f --- 条件関数
 //
 // @return 条件に合致する文字を除去したスライス
-func TrimRightFunc(s []rune, f func(rune)bool) []rune {
+func TrimRightFunc(s []rune, f func(rune) bool) []rune {
 
 	index := lastIndexFunc(s, f, false)
 	if index == -1 {
@@ -65,7 +65,7 @@ func TrimRightFunc(s []rune, f func(rune)bool) []rune {
 // @param truth --- 条件関数が返す値の期待値
 //
 // @return インデックス
-func indexFunc(s []rune, f func(rune)bool, truth bool) int {
+func indexFunc(s []rune, f func(rune) bool, truth bool) int {
 
 	for i, c := range s {
 		if f(c) == truth {
@@ -84,9 +84,9 @@ func indexFunc(s []rune, f func(rune)bool, truth bool) int {
 // @param truth --- 条件関数が返す値の期待値
 //
 // @return インデックス
-func lastIndexFunc(s []rune, f func(rune)bool, truth bool) int {
+func lastIndexFunc(s []rune, f func(rune) bool, truth bool) int {
 
-	for i:=len(s)-1; i>=0; i-- {
+	for i := len(s) - 1; i >= 0; i-- {
 		if f(s[i]) == truth {
 			return i
 		}
