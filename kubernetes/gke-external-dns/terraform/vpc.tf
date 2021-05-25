@@ -13,4 +13,3 @@ resource "google_compute_subnetwork" "asia_northeast1" {
   region        = local.region
   network       = google_compute_network.vpc.id
 }
-
